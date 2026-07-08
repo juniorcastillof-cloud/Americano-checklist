@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Americano Checklists — Verizon North Royalton UPS</title>
+
+<!-- iOS PWA / home-screen support -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Americano Checklist">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1b2a4a">
+
+<link rel="stylesheet" href="css/styles.css">
+
+<!-- SheetJS (Excel generation) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- MSAL.js (Microsoft sign-in for OneDrive / Graph) -->
+<script src="https://alcdn.msauth.net/browser/3.14.0/js/msal-browser.min.js"></script>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-header__title-row">
+    <div class="app-header__brand">
+      <div class="app-header__mark">AI</div>
+      <div class="app-header__text">
+        <h1 id="hdrTitle">Field Inspection Checklist</h1>
+        <p id="hdrSubtitle">Verizon North Royalton UPS · Americano Industrial Services</p>
+      </div>
+    </div>
+    <div class="lang-toggle">
+      <button id="langEnBtn" class="active" onclick="setLang('en')">EN</button>
+      <button id="langEsBtn" onclick="setLang('es')">ES</button>
+    </div>
+  </div>
+  <div class="sync-bar">
+    <div class="sync-bar__status">
+      <span class="sync-dot" id="syncDot"></span>
+      <span id="syncLabel">Not connected to OneDrive</span>
+    </div>
+    <button id="syncBtn" onclick="handleSyncButton()">Connect OneDrive</button>
+  </div>
+</header>
+
+<main>
+
+  <div class="view-tabs">
+    <button id="tabChecklistBtn" class="active" onclick="showView('checklist')">☑ <span data-t="tab_checklist">Checklist</span></button>
+    <button id="tabSummaryBtn" onclick="showView('summary')">📊 <span data-t="tab_summary">Summary</span></button>
+  </div>
+
+  <!-- ============ CHECKLIST VIEW ============ -->
+  <section id="viewChecklist">
+
+    <div class="card">
+      <h2 data-t="setup_heading">Inspection Setup</h2>
+
+      <div class="field">
+        <label data-t="lbl_project">Project <span class="bi">/ Proyecto</span></label>
+        <input type="text" id="fProject" readonly>
+      </div>
+
+      <div class="field">
+        <label data-t="lbl_subcontractor">Subcontractor <span class="bi">/ Subcontratista</span></label>
+        <input type="text" id="fSubcontractor" readonly>
+      </div>
+
+      <div class="field">
+        <label data-t="lbl_phase">Inspection Phase <span class="bi">/ Fase de Inspección</span></label>
+        <select id="fPhase" onchange="onPhaseOrAreaChange()"></select>
+      </div>
+
+      <div class="field">
+        <label data-t="lbl_area">Area / Location <span class="bi">/ Área o Ubicación</span></label>
+        <input type="text" id="fArea" placeholder="e.g. Battery Room 2, 2nd Floor UPS Room" oninput="onPhaseOrAreaChange()">
+      </div>
+
+      <div class="field">
+        <label data-t="lbl_inspector">Inspector Name <span class="bi">/ Nombre del Inspector</span></label>
+        <input type="text" id="fInspector" placeholder="Full name">
+      </div>
+
+      <div class="field">
+        <label data-t="lbl_date">Inspection Date <span class="bi">/ Fecha de Inspección</span></label>
+        <input type="date" id="fDate">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="disclaimer">
+        <span class="disclaimer-lang">English</span>
+        <span id="disclaimerEn"></span>
+      </div>
+      <div class="disclaimer">
+        <span class="disclaimer-lang">Español</span>
+        <span id="disclaimerEs"></span>
+      </div>
+    </div>
+
+    <div class="card" id="progressCard">
+      <h2 data-t="progress_heading">Progress — This Phase / Area</h2>
+      <div class="progress-row">
+        <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        <div class="progress-label" id="progressLabel">0%</div>
+      </div>
+      <div class="muted" id="progressDetail"></div>
+    </div>
+
+    <div id="itemsContainer"></div>
+
+    <div class="card">
+      <h2 data-t="general_notes_heading">General Inspection Notes</h2>
+      <textarea id="fGeneralNotes" rows="4" placeholder="Overall observations for this inspection..."></textarea>
+    </div>
+
+  </section>
+
+  <!-- ============ SUMMARY VIEW ============ -->
+  <section id="viewSummary" class="hidden">
+    <div class="stat-grid">
+      <div class="stat-tile"><div class="num" id="statTotal">0</div><div class="lbl" data-t="stat_total">Total Items</div></div>
+      <div class="stat-tile pass"><div class="num" id="statPass">0</div><div class="lbl" data-t="stat_pass">Passed</div></div>
+      <div class="stat-tile fail"><div class="num" id="statFail">0</div><div class="lbl" data-t="stat_fail">Failed</div></div>
+      <div class="stat-tile pending"><div class="num" id="statPending">0</div><div class="lbl" data-t="stat_pending">Pending</div></div>
+    </div>
+    <div class="card">
+      <h2 data-t="stat_pct">Percent Complete</h2>
+      <div class="progress-row">
+        <div class="progress-track"><div class="progress-fill" id="summaryProgressFill" style="width:0%"></div></div>
+        <div class="progress-label" id="summaryProgressLabel">0%</div>
+      </div>
+      <p class="muted" id="lastInspectionLabel"></p>
+    </div>
+    <div class="card">
+      <h2 data-t="stat_open_by_phase">Open Items by Phase</h2>
+      <div id="phaseOpenList"></div>
+    </div>
+    <div class="card">
+      <h2 data-t="export_heading">Export</h2>
+      <p class="muted" data-t="export_note">Download a full copy of the current workbook (all phases, all recorded inspections) at any time.</p>
+      <button class="small-btn" onclick="downloadNow()" data-t="btn_download_now">Download Excel Workbook Now</button>
+      &nbsp;
+      <button class="small-btn" onclick="resetLocalData()" data-t="btn_reset" style="color:#c62828;border-color:#c62828;">Reset Local Data…</button>
+    </div>
+  </section>
+
+</main>
+
+<div class="submit-bar">
+  <div class="submit-bar__inner">
+    <div class="submit-bar__summary" id="submitSummary"></div>
+    <button class="submit-btn" id="submitBtn" onclick="submitInspection()" data-t="btn_submit">Submit Inspection</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/checklist-data.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/graph.js"></script>
+<script src="js/export.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
