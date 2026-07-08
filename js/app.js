@@ -151,7 +151,7 @@ function renderItemCard(item) {
         <button class="photo-btn" onclick="document.getElementById('file_${item.id}').click()">
           📷 ${currentLang === 'es' ? 'Agregar foto' : 'Add photo'}
         </button>
-        <input type="file" id="file_${item.id}" accept="image/*" capture="environment" class="hidden"
+        <input type="file" id="file_${item.id}" accept="image/*" class="hidden"
           onchange="addPhoto('${item.id}', this)">` : ''}
         ${photosHtml}
         ${s.photoIds && s.photoIds.length ? `<span class="photo-count">${s.photoIds.length} ${currentLang === 'es' ? 'foto(s)' : 'photo(s)'}</span>` : ''}
